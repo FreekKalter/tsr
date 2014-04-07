@@ -50,13 +50,13 @@ func init() {
 func main() {
 	flag.Parse()
 
+	if getTime {
+		fmt.Println(time.Now().Format(time.RFC1123))
+		return
+	}
 	if prefix == "" {
 		fmt.Println("Provide a archive prefix to list/delete")
 		flag.Usage()
-		return
-	}
-	if getTime {
-		fmt.Println(time.Now().Format(time.RFC1123))
 		return
 	}
 	archives := getArchives()
