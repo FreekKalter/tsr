@@ -33,7 +33,7 @@ func init() {
 	flag.BoolVar(&getTime, "time", false, "just print rfc1123 formatted time")
 	flag.IntVar(&nrOfArchives, "number", 3, "number of archives to keep")
 	flag.BoolVar(&del, "delete", false, "keep \"number\" of oldest archives, delete the rest")
-	flag.StringVar(&config, "config", "~/.tarsnaprc", "location of tarsnaprc")
+	flag.StringVar(&config, "configfile", "~/.tarsnaprc", "location of tarsnaprc")
 }
 
 func main() {
@@ -61,6 +61,10 @@ func main() {
 }
 
 func deleteArchives(archives ArchiveList) {
+	if len(archives) < 1 {
+		fmt.Println("no archives to delete")
+		return
+	}
 	for _, a := range archives {
 		fmt.Println("deleting:", a.Name)
 		cmd := exec.Command("tarsnap", "-d", "--configfile", config, "-f", fmt.Sprintf("%s", a.Name))
