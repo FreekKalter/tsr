@@ -29,8 +29,12 @@ var (
 	config       string
 )
 
+const (
+	tarsnap = "/usr/local/bin/tarsnap"
+)
+
 func init() {
-	flag.BoolVar(&getTime, "time", false, "just print rfc1123 formatted time")
+	flag.BoolVar(&getTime, "time", false, "just print rfc1123 formatted time and exit (use this for backing up)")
 	flag.IntVar(&nrOfArchives, "number", 3, "number of archives to keep")
 	flag.BoolVar(&del, "delete", false, "keep \"number\" of oldest archives, delete the rest")
 	flag.StringVar(&config, "configfile", "~/.tarsnaprc", "location of tarsnaprc")
@@ -67,7 +71,7 @@ func deleteArchives(archives ArchiveList) {
 	}
 	for _, a := range archives {
 		fmt.Println("deleting:", a.Name)
-		cmd := exec.Command("tarsnap", "-d", "--configfile", config, "-f", fmt.Sprintf("%s", a.Name))
+		cmd := exec.Command(tarsnap, "-d", "--configfile", config, "-f", fmt.Sprintf("%s", a.Name))
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			log.Fatal(err, " ", string(out))
@@ -77,7 +81,7 @@ func deleteArchives(archives ArchiveList) {
 
 func getArchives(prefix string) ArchiveList {
 	// run tarsnap --list-archives
-	cmd := exec.Command("tarsnap", "--list-archives", "--configfile", config)
+	cmd := exec.Command(tarsnap, "--list-archives", "--configfile", config)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Fatal(err, " ", string(out))
