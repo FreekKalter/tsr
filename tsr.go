@@ -2,19 +2,15 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"log"
-	"os"
 	"os/exec"
-	"os/signal"
 	"regexp"
 	"sort"
-	"strconv"
-	"strings"
-	"syscall"
-	"time"
 
-	"github.com/stathat/go"
+	"flag"
+	"fmt"
+
+	"time"
 )
 
 type Config struct {
@@ -22,9 +18,9 @@ type Config struct {
 }
 
 type Backup struct {
-	Date   time.Time
-	Part   bool
-	Suffix string
+	Date time.Time
+	Part bool
+	Name string
 }
 
 type BackupList []Backup
@@ -33,15 +29,81 @@ func (d BackupList) Swap(i, j int)      { d[i], d[j] = d[j], d[i] }
 func (d BackupList) Len() int           { return len(d) }
 func (d BackupList) Less(i, j int) bool { return d[i].Date.Before(d[j].Date) }
 
-var prefix string
-var filename string
-var nrOfBackups int
-var configFileLocation string
-var process *os.Process
+var (
+	prefix      string
+	nrOfBackups int
+	del         bool
+)
 
-const dateFormat = "2006-01-02"
+const (
+	config = "/home/fkalter/.tarsnaprc"
+)
 
+var getTime bool
+
+func init() {
+	flag.BoolVar(&getTime, "time", false, "just print rfc1123 formatted time")
+	flag.StringVar(&prefix, "prefix", "", "what archives to list/delete")
+	flag.IntVar(&nrOfBackups, "number", 3, "number of archives to keep")
+	flag.BoolVar(&del, "delete", false, "keep \"number\" of oldest archives, delete the rest")
+}
 func main() {
+	flag.Parse()
+
+	if prefix == "" {
+		fmt.Println("Provide a archive prefix to list/delete")
+		flag.Usage()
+		return
+	}
+	if getTime {
+		fmt.Println(time.Now().Format(time.RFC1123))
+		return
+	}
+	archives := getArchives()
+	sort.Sort(sort.Reverse(archives))
+	if del {
+		deleteArchives(archives[nrOfBackups:])
+		return
+	}
+	for _, a := range archives {
+		fmt.Println(a.Name)
+	}
+}
+
+func deleteArchives(backups BackupList) {
+	for _, b := range backups {
+		fmt.Println("deleting:", b.Name)
+		cmd := exec.Command("tarsnap", "-d", "--configfile", config, "-f", fmt.Sprintf("%s", b.Name))
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			log.Fatal(err, " ", string(out))
+		}
+	}
+}
+
+func getArchives() BackupList {
+	// run tarsnap --list-archives
+	cmd := exec.Command("tarsnap", "--list-archives", "--configfile", config)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Fatal(err, " ", string(out))
+	}
+	archiveRegex := regexp.MustCompile(prefix + `\((.*)\)`)
+	backups := make(BackupList, 0)
+	for _, s := range bytes.Split(out, []byte("\n")) {
+		if matches := archiveRegex.FindStringSubmatch(string(s)); len(matches) > 1 {
+			t, err := time.Parse(time.RFC1123, matches[1])
+			if err != nil {
+				panic(err)
+			}
+			b := Backup{Date: t, Name: string(s)}
+			backups = append(backups, b)
+		}
+	}
+	return backups
+}
+
+/*
 	gracefullExit := make(chan os.Signal, 1)
 	signal.Notify(gracefullExit, os.Interrupt, os.Kill, syscall.SIGTERM, syscall.SIGQUIT)
 	go func(c chan os.Signal) {
@@ -54,16 +116,6 @@ func main() {
 		}
 
 	}(gracefullExit)
-
-	ParseCommandLine()
-
-    CallTarsnap()
-	//if len(ListArchivesWithPrefix()) > nrOfBackups {
-        //log.Println("deleting oldest")
-		//DeleteOldest()
-	//}
-}
-
 func ParseCommandLine() {
 	// parse archive name / prefix
 	for i := 0; i < len(os.Args); i++ {
@@ -116,8 +168,8 @@ func CallTarsnap() error {
 	if err := cmd.Wait(); err != nil {
 		output = cmdOutput.Bytes()
 		if archiveExistsRegex.Match(output) {
-            log.Println("Already backed up today")
-            return nil
+			log.Println("Already backed up today")
+			return nil
 		}
 		log.Println(err, " ", string(output))
 		return err
@@ -217,3 +269,4 @@ func DeleteOldest() {
 	}
 
 }
+*/
