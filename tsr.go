@@ -56,7 +56,11 @@ func main() {
 	archives := getArchives(prefix)
 	sort.Sort(sort.Reverse(archives))
 	if del {
-		deleteArchives(archives[nrOfArchives:])
+		if len(archives) <= nrOfArchives {
+			fmt.Println("no archives to delete")
+		} else {
+			deleteArchives(archives[nrOfArchives:])
+		}
 		return
 	}
 	for _, a := range archives {
@@ -65,10 +69,6 @@ func main() {
 }
 
 func deleteArchives(archives ArchiveList) {
-	if len(archives) < 1 {
-		fmt.Println("no archives to delete")
-		return
-	}
 	for _, a := range archives {
 		fmt.Println("deleting:", a.Name)
 		cmd := exec.Command(tarsnap, "-d", "--configfile", config, "-f", fmt.Sprintf("%s", a.Name))
@@ -92,7 +92,7 @@ func getArchives(prefix string) ArchiveList {
 		if matches := archiveRegex.FindStringSubmatch(string(s)); len(matches) > 1 {
 			t, err := time.Parse(time.RFC1123, matches[1])
 			if err != nil {
-				panic(err)
+				continue
 			}
 			b := Archive{Date: t, Name: string(s)}
 			archives = append(archives, b)
